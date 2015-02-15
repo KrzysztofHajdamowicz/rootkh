@@ -22,10 +22,13 @@ config = configparser.ConfigParser()
 config.read(os.path.join(os.path.dirname(__file__), 'config.ini'))
 
 argparser = argparse.ArgumentParser()
-argparser.add_argument("--method", "-m", help="Select method for upload")
-argparser.add_argument("--width", "-W", help="")
-argparser.add_argument("--height", "-H", help="")
-argparser.add_argument("files", help="Select method for upload", nargs="+")
+argparser.add_argument("--method", help="select method for upload")
+argparser.add_argument("--thumb-width", help="thumbnail width")
+argparser.add_argument("--thumb-height", help="thumbnail height")
+argparser.add_argument("--url", help="", choices=['direct', 'bbcode', 'bbcode-direct'])
+argparser.add_argument("--fullsize-only", help="don't thumbnail", action="store_true")
+
+argparser.add_argument("file", help="Select method for upload", nargs="+")
 args = argparser.parse_args()
 
 
@@ -58,16 +61,30 @@ def upload_webdav(filepath):
 
     def save(img, img_uri):
         with BytesIO() as byte_file:
-            img.save(byte_file, format='jpeg')
+            img.save(byte_file, format=config['default']['format'])
             byte_file.seek(0)
             client.put(img_uri, byte_file.read())
 
     save(image, image_uri)
     save(thumb, thumb_uri)
 
-def upload(file):
-    upload_method = args.method or config['default']['method']
+    return image_uri, thumb_uri
 
+
+def url_handler(type, url='', thumb=''):
+    if type == 'direct':
+        return url
+    if type == 'bbcode':
+        return bbcode('url', bbcode('img', thumb), url)
+    if type == 'bbcode-direct':
+        return bbcode('img', url)
+
+
+def bbcode(tag, content, opts=None):
+    return "[{tago:}]{content:}[/{tagc:}]".format(
+        tago=tag if not opts else '{tag:}={opts:}'.format(tag=tag, opts=opts),
+        tagc=tag,
+        content=content)
 
 if __name__ == "__main__":
     upload_webdav('/home/krzyszt/Pictures/syaoran_de_tsubasa_clamp_by_tsubasashaoran.jpg')
